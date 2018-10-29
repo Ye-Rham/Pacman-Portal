@@ -94,6 +94,9 @@ class Portal(Sprite):
         self.rect.x -= self.rect.width
         self.portal_direction = None
 
+        self.portal_active = False
+        self.expiration_time = 0
+
     def initialize_portal(self, bullet, portal_switch):
         if bullet.direction == 0 or bullet.direction == 1:
             if not portal_switch:
@@ -121,12 +124,47 @@ class Portal(Sprite):
                 self.portal_direction = 2
                 self.rect.top = bullet.rect.bottom
             self.rect.centerx = bullet.rect.centerx
+        self.portal_active = True
+        self.expiration_time = 0
 
     def draw(self):
         self.screen.blit(self.image, self.rect)
 
-    def reset_portal(self):
+    def reset_portal(self, pacman):
         self.image = self.images[0]
         self.rect = self.image.get_rect()
         self.rect.x -= self.rect.width
         self.portal_direction = None
+        self.portal_active = False
+        self.expiration_time = 0
+        pacman.portals_active = False
+
+    def expire_portal(self, pacman):
+        if self.portal_active:
+            self.expiration_time += 1
+            if self.expiration_time == 60 * 10:
+                self.reset_portal(pacman)
+
+
+class SidePortals:
+    def __init__(self, settings, screen):
+        self.settings = settings
+        self.screen = screen
+        self.screen_rect = screen.get_rect()
+
+        self.left_x = self.screen_rect.centerx - self.settings.block_width * 30.5
+        self.right_x = self.screen_rect.centerx + self.settings.block_width * 27.5
+        self.y = self.settings.block_height * 27 + self.settings.screen_height * 1/8 + 1
+        self.left_rect = pygame.Rect(self.left_x, self.y, settings.entity_width, settings.entity_height)
+        self.right_rect = pygame.Rect(self.right_x, self.y, settings.entity_width, settings.entity_height)
+        self.color = (0, 0, 0)
+
+    def draw(self):
+        self.screen.fill(self.color, self.left_rect)
+        self.screen.fill(self.color, self.right_rect)
+
+    def transport(self, entity):
+        if entity.rect.left <= self.left_rect.left:
+            entity.rect.right = self.right_rect.right - 1
+        elif entity.rect.right >= self.right_rect.right:
+            entity.rect.left = self.left_rect.left + 1

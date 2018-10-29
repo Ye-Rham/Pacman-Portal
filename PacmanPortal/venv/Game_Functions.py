@@ -5,7 +5,7 @@ import sys
 from Portals import PortalBullet
 
 
-def check_keydown_events(event, settings, screen, spritesheet, pacman, bullets):
+def check_keydown_events(event, settings, screen, spritesheet, pacman, bullets, game_sounds, channel3):
     if event.key == pygame.K_LEFT:
         pacman.move_left = True
     elif event.key == pygame.K_RIGHT:
@@ -19,6 +19,10 @@ def check_keydown_events(event, settings, screen, spritesheet, pacman, bullets):
             bullet = PortalBullet(settings, screen, spritesheet, pacman)
             bullets.add(bullet)
             pacman.bullet_active = True
+            if not pacman.portal_switch:
+                channel3.play(game_sounds["OrangeBullet"])
+            else:
+                channel3.play(game_sounds["BlueBullet"])
 
 
 def check_keyup_events(event, pacman):
@@ -32,12 +36,12 @@ def check_keyup_events(event, pacman):
         pacman.move_down = False
 
 
-def check_events(settings, screen, spritesheet, play_button, score_button, pacman, bullets):
+def check_events(settings, screen, spritesheet, play_button, score_button, pacman, bullets, game_sounds, channel3):
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             sys.exit()
         if event.type == pygame.KEYDOWN and settings.game_on:
-            check_keydown_events(event, settings, screen, spritesheet, pacman, bullets)
+            check_keydown_events(event, settings, screen, spritesheet, pacman, bullets, game_sounds, channel3)
         if event.type == pygame.KEYUP and settings.game_on:
             check_keyup_events(event, pacman)
         if event.type == pygame.MOUSEBUTTONDOWN and not settings.game_on:
@@ -47,13 +51,13 @@ def check_events(settings, screen, spritesheet, play_button, score_button, pacma
 
 
 def check_play_button(settings, play_button, pacman, mouse_x, mouse_y):
-    if play_button.button_rect.collidepoint(mouse_x, mouse_y):
+    if play_button.rect.collidepoint(mouse_x, mouse_y):
         settings.game_on = True
         pacman.reset_pacman()
 
 
 def check_score_button(settings, score_button, mouse_x, mouse_y):
-    clicked = score_button.button_rect.collidepoint(mouse_x, mouse_y)
+    clicked = score_button.rect.collidepoint(mouse_x, mouse_y)
     if clicked and not settings.score_on:
         settings.score_on = True
         score_button.msg = 'BACK'
@@ -64,11 +68,68 @@ def check_score_button(settings, score_button, mouse_x, mouse_y):
         score_button.prep_msg()
 
 
-def check_collisions(settings, screen, time, spritesheet, score, play_button, score_button,
-                     pacman, maze, blocks, g_blocks, pellets, power_pellets,
-                     left_hitbox, right_hitbox, up_hitbox, down_hitbox, bullets, orange_portal, blue_portal):
+def check_collisions(settings, score, pacman, blocks, g_blocks, pellets, power_pellets,
+                     left_hitbox, right_hitbox, up_hitbox, down_hitbox, bullets, orange_portal, blue_portal, fruit,
+                     game_sounds, channel1, channel2, channel3, side_portals, red_ghost):
     pacmans = Group()
     pacmans.add(pacman)
+    portals = Group()
+    portals.add(orange_portal)
+    portals.add(blue_portal)
+
+    pacman_collisions(settings, score, blocks, g_blocks, pellets, power_pellets, pacman, pacmans, left_hitbox,
+                      right_hitbox, up_hitbox, down_hitbox, orange_portal, blue_portal, portals, fruit,
+                      game_sounds, channel1, channel3, side_portals)
+
+    ghost_collisions(settings, score, blocks, g_blocks, pacman, left_hitbox,
+                     right_hitbox, up_hitbox, down_hitbox, orange_portal, blue_portal, portals,
+                     game_sounds, channel3, side_portals, red_ghost)
+
+    bullet_collisions(pacman, blocks, g_blocks, bullets, orange_portal, blue_portal, portals, game_sounds, channel3,
+                      side_portals)
+
+    if not pacman.active:
+        sleep(1)
+        fruit.reset_fruit()
+        fruit.fruit_count = 0
+        bullets.empty()
+        orange_portal.reset_portal(pacman)
+        blue_portal.reset_portal(pacman)
+        channel1.stop()
+        channel2.stop()
+        channel3.stop()
+        channel1.play(game_sounds["Death"])
+
+    score.prep_score()
+    score.prep_high_score()
+
+
+def end_level(settings, screen, time, spritesheet, score, title, play_button, score_button,
+              pacman, maze, blocks, g_blocks, pellets, power_pellets, bullets, orange_portal, blue_portal, fruit,
+              channel1, channel2, channel3, side_portals, red_ghost):
+    maze.reset_maze(spritesheet, pellets, power_pellets)
+    pacman.reset_pacman()
+    red_ghost.reset_ghost()
+    fruit.reset_fruit()
+    fruit.fruit_count = 0
+    bullets.empty()
+    orange_portal.reset_portal(pacman)
+    blue_portal.reset_portal(pacman)
+    channel1.stop()
+    channel2.stop()
+    channel3.stop()
+    sleep(3)
+    settings.level_up(score)
+    score.prep_level()
+    update_screen(settings, screen, time, score, play_button, title, score_button, pacman, blocks, g_blocks, pellets,
+                  power_pellets, bullets, orange_portal, blue_portal, fruit, side_portals, red_ghost)
+    maze.pre_game_draw()
+    sleep(5)
+
+
+def pacman_collisions(settings, score, blocks, g_blocks, pellets, power_pellets, pacman, pacmans, left_hitbox,
+                      right_hitbox, up_hitbox, down_hitbox, orange_portal, blue_portal, portals, fruit,
+                      game_sounds, channel1, channel3, side_portals):
     left_hits = Group()
     left_hits.add(left_hitbox)
     right_hits = Group()
@@ -77,36 +138,96 @@ def check_collisions(settings, screen, time, spritesheet, score, play_button, sc
     up_hits.add(up_hitbox)
     down_hits = Group()
     down_hits.add(down_hitbox)
-    portals = Group()
-    portals.add(orange_portal)
-    portals.add(blue_portal)
 
-    pacman_collisions(settings, score, blocks, g_blocks, pellets, power_pellets, pacman, pacmans, left_hitbox,
-                      left_hits, right_hitbox, right_hits, up_hitbox, up_hits, down_hitbox, down_hits, orange_portal,
-                      blue_portal, portals)
+    side_portals.transport(pacman)
 
-    bullet_collisions(pacman, blocks, g_blocks, bullets, orange_portal, blue_portal, portals)
+    current_position, next_position = None, None
+    if pacman.moving_left:
+        current_position, next_position = pacman.rect.x - settings.pacman_speed, pacman.rect.x
+    elif pacman.moving_right:
+        current_position, next_position = pacman.rect.x, pacman.rect.x + settings.pacman_speed
+    elif pacman.moving_up:
+        current_position, next_position = pacman.rect.y - settings.pacman_speed, pacman.rect.y
+    elif pacman.moving_down:
+        current_position, next_position = pacman.rect.y, pacman.rect.y + settings.pacman_speed
 
-    score.prep_score()
-
-    if len(pellets) == 0 and len(power_pellets) == 0:
-        maze.reset_maze(spritesheet, pellets, power_pellets)
-        pacman.reset_pacman()
-        bullets.empty()
-        for portal in portals:
-            portal.reset_portal()
-        sleep(3)
-        update_screen(settings, screen, time, score, play_button, score_button, pacman, blocks, g_blocks, pellets,
-                      power_pellets, orange_portal, blue_portal, portals)
-        settings.pacman_speed *= settings.speed_multiplier
-        sleep(3)
-
-
-def pacman_collisions(settings, score, blocks, g_blocks, pellets, power_pellets, pacman, pacmans, left_hitbox,
-                      left_hits, right_hitbox, right_hits, up_hitbox, up_hits, down_hitbox, down_hits,
-                      orange_portal, blue_portal, portals):
     collisions1 = pygame.sprite.groupcollide(pacmans, pellets, False, True)
     collisions2 = pygame.sprite.groupcollide(pacmans, power_pellets, False, True)
+    collisions3 = pygame.sprite.collide_rect(pacman, fruit)
+    orange_portal_collision = pygame.sprite.collide_rect(pacman, orange_portal)
+    blue_portal_collision = pygame.sprite.collide_rect(pacman, blue_portal)
+
+    if collisions1:
+        for pellets in collisions1.values():
+            score.update_score(settings.pellet_value * len(pellets))
+        if not channel1.get_sound():
+            channel1.play(game_sounds["EatPellet"])
+    if collisions2:
+        for power_pellets in collisions2.values():
+            score.update_score(settings.power_pellet_value * len(power_pellets))
+    if collisions3 and not fruit.text:
+        fruit.text = True
+        score.update_score(settings.fruit_value[score.level % 8 - 1])
+        fruit.prep_points_image(score)
+        channel1.play(game_sounds["EatFruit"])
+
+    if pacman.moving_left or pacman.moving_right:
+        for x in range(current_position, next_position):
+            up_hitbox.rect.x = x
+            down_hitbox.rect.x = x
+            left_collisions = pygame.sprite.groupcollide(left_hits, blocks, False, False)
+            left_collisions2 = pygame.sprite.groupcollide(left_hits, portals, False, False)
+            left_collisions3 = pygame.sprite.groupcollide(left_hits, g_blocks, False, False)
+            right_collisions = pygame.sprite.groupcollide(right_hits, blocks, False, False)
+            right_collisions2 = pygame.sprite.groupcollide(right_hits, portals, False, False)
+            right_collisions3 = pygame.sprite.groupcollide(right_hits, g_blocks, False, False)
+            up_collisions = pygame.sprite.groupcollide(up_hits, blocks, False, False)
+            up_collisions2 = pygame.sprite.groupcollide(up_hits, portals, False, False)
+            down_collisions = pygame.sprite.groupcollide(down_hits, blocks, False, False)
+            down_collisions2 = pygame.sprite.groupcollide(down_hits, portals, False, False)
+            down_collisions3 = pygame.sprite.groupcollide(down_hits, g_blocks, False, False)
+            pacman.check_space(left_collisions, left_collisions2, left_collisions3, right_collisions, right_collisions2,
+                               right_collisions3, up_collisions, up_collisions2, down_collisions, down_collisions2,
+                               down_collisions3, x, pacman.rect.y)
+    elif pacman.moving_up or pacman.moving_down:
+        for y in range(current_position, next_position):
+            left_hitbox.rect.y = y
+            right_hitbox.rect.y = y
+            left_collisions = pygame.sprite.groupcollide(left_hits, blocks, False, False)
+            left_collisions2 = pygame.sprite.groupcollide(left_hits, portals, False, False)
+            left_collisions3 = pygame.sprite.groupcollide(left_hits, g_blocks, False, False)
+            right_collisions = pygame.sprite.groupcollide(right_hits, blocks, False, False)
+            right_collisions2 = pygame.sprite.groupcollide(right_hits, portals, False, False)
+            right_collisions3 = pygame.sprite.groupcollide(right_hits, g_blocks, False, False)
+            up_collisions = pygame.sprite.groupcollide(up_hits, blocks, False, False)
+            up_collisions2 = pygame.sprite.groupcollide(up_hits, portals, False, False)
+            down_collisions = pygame.sprite.groupcollide(down_hits, blocks, False, False)
+            down_collisions2 = pygame.sprite.groupcollide(down_hits, portals, False, False)
+            down_collisions3 = pygame.sprite.groupcollide(down_hits, g_blocks, False, False)
+            pacman.check_space(left_collisions, left_collisions2, left_collisions3, right_collisions, right_collisions2,
+                               right_collisions3, up_collisions, up_collisions2, down_collisions, down_collisions2,
+                               down_collisions3, pacman.rect.x, y)
+    else:
+        left_collisions = pygame.sprite.groupcollide(left_hits, blocks, False, False)
+        left_collisions2 = pygame.sprite.groupcollide(left_hits, portals, False, False)
+        left_collisions3 = pygame.sprite.groupcollide(left_hits, g_blocks, False, False)
+        right_collisions = pygame.sprite.groupcollide(right_hits, blocks, False, False)
+        right_collisions3 = pygame.sprite.groupcollide(right_hits, g_blocks, False, False)
+        right_collisions2 = pygame.sprite.groupcollide(right_hits, portals, False, False)
+        up_collisions = pygame.sprite.groupcollide(up_hits, blocks, False, False)
+        up_collisions2 = pygame.sprite.groupcollide(up_hits, portals, False, False)
+        down_collisions = pygame.sprite.groupcollide(down_hits, blocks, False, False)
+        down_collisions2 = pygame.sprite.groupcollide(down_hits, portals, False, False)
+        down_collisions3 = pygame.sprite.groupcollide(down_hits, g_blocks, False, False)
+        pacman.check_space(left_collisions, left_collisions2, left_collisions3, right_collisions, right_collisions2,
+                           right_collisions3, up_collisions, up_collisions2, down_collisions, down_collisions2,
+                           down_collisions3, pacman.rect.x, pacman.rect.y)
+
+    left_hitbox.update_hitbox(pacman)
+    right_hitbox.update_hitbox(pacman)
+    up_hitbox.update_hitbox(pacman)
+    down_hitbox.update_hitbox(pacman)
+
     left_collisions = pygame.sprite.groupcollide(left_hits, blocks, False, False)
     left_collisions2 = pygame.sprite.groupcollide(left_hits, portals, False, False)
     right_collisions = pygame.sprite.groupcollide(right_hits, blocks, False, False)
@@ -115,26 +236,15 @@ def pacman_collisions(settings, score, blocks, g_blocks, pellets, power_pellets,
     up_collisions2 = pygame.sprite.groupcollide(up_hits, portals, False, False)
     down_collisions = pygame.sprite.groupcollide(down_hits, blocks, False, False)
     down_collisions2 = pygame.sprite.groupcollide(down_hits, portals, False, False)
-    down_collisions3 = pygame.sprite.groupcollide(down_hits, g_blocks, False, False)
-    orange_portal_collision = pygame.sprite.collide_rect(pacman, orange_portal)
-    blue_portal_collision = pygame.sprite.collide_rect(pacman, blue_portal)
-
-    if collisions1:
-        for pellets in collisions1.values():
-            score.points += settings.pellet_value * len(pellets)
-    if collisions2:
-        for power_pellets in collisions2.values():
-            score.points += settings.pellet_value * len(power_pellets)
-
-    pacman.check_space(left_collisions, left_collisions2, right_collisions, right_collisions2, up_collisions,
-                       up_collisions2, down_collisions, down_collisions2, down_collisions3)
 
     if orange_portal_collision:
         if pacman.portal_cooldown == 0:
             portal_transfer(pacman, blue_portal)
+            channel3.play(game_sounds["Port"])
     elif blue_portal_collision:
         if pacman.portal_cooldown == 0:
             portal_transfer(pacman, orange_portal)
+            channel3.play(game_sounds["Port"])
     elif left_collisions and not (left_collisions2 and pacman.portals_active) and pacman.moving_left:
         while left_collisions:
             pacman.left_block_collide()
@@ -159,6 +269,113 @@ def pacman_collisions(settings, score, blocks, g_blocks, pellets, power_pellets,
             down_hitbox.update_hitbox(pacman)
             down_collisions = pygame.sprite.groupcollide(down_hits, blocks, False, False)
         pacman.rect.y += 2
+
+
+def ghost_collisions(settings, score, blocks, g_blocks, pacman, left_hitbox,
+                     right_hitbox, up_hitbox, down_hitbox, orange_portal, blue_portal, portals,
+                     game_sounds, channel3, side_portals, ghost):
+    left_hitbox.rect.right = ghost.rect.left - 1
+    left_hitbox.rect.top = ghost.rect.top
+    right_hitbox.rect.left = ghost.rect.right + 1
+    right_hitbox.rect.top = ghost.rect.top
+    up_hitbox.rect.left = ghost.rect.left
+    up_hitbox.rect.bottom = ghost.rect.top - 1
+    down_hitbox.rect.left = ghost.rect.left
+    down_hitbox.rect.top = ghost.rect.bottom + 1
+
+    left_hits = Group()
+    left_hits.add(left_hitbox)
+    right_hits = Group()
+    right_hits.add(right_hitbox)
+    up_hits = Group()
+    up_hits.add(up_hitbox)
+    down_hits = Group()
+    down_hits.add(down_hitbox)
+
+    side_portals.transport(ghost)
+
+    current_position, next_position = None, None
+    if ghost.moving_left:
+        current_position, next_position = ghost.rect.x - settings.ghost_speed, ghost.rect.x
+    elif ghost.moving_right:
+        current_position, next_position = ghost.rect.x, ghost.rect.x + settings.ghost_speed
+    elif ghost.moving_up:
+        current_position, next_position = ghost.rect.y - settings.ghost_speed, ghost.rect.y
+    elif ghost.moving_down:
+        current_position, next_position = ghost.rect.y, ghost.rect.y + settings.ghost_speed
+
+    if ghost.moving_left or ghost.moving_right:
+        for x in range(current_position, next_position):
+            up_hitbox.rect.x = x
+            down_hitbox.rect.x = x
+            left_collisions = pygame.sprite.groupcollide(left_hits, blocks, False, False)
+            left_collisions2 = pygame.sprite.groupcollide(left_hits, portals, False, False)
+            left_collisions3 = pygame.sprite.groupcollide(left_hits, g_blocks, False, False)
+            right_collisions = pygame.sprite.groupcollide(right_hits, blocks, False, False)
+            right_collisions2 = pygame.sprite.groupcollide(right_hits, portals, False, False)
+            right_collisions3 = pygame.sprite.groupcollide(right_hits, g_blocks, False, False)
+            up_collisions = pygame.sprite.groupcollide(up_hits, blocks, False, False)
+            up_collisions2 = pygame.sprite.groupcollide(up_hits, portals, False, False)
+            down_collisions = pygame.sprite.groupcollide(down_hits, blocks, False, False)
+            down_collisions2 = pygame.sprite.groupcollide(down_hits, portals, False, False)
+            down_collisions3 = pygame.sprite.groupcollide(down_hits, g_blocks, False, False)
+            ghost.check_space(left_collisions, left_collisions2, left_collisions3, right_collisions, right_collisions2,
+                              right_collisions3, up_collisions, up_collisions2, down_collisions, down_collisions2,
+                              down_collisions3, x, ghost.rect.y, pacman, score)
+    elif ghost.moving_up or ghost.moving_down:
+        for y in range(current_position, next_position):
+            left_hitbox.rect.y = y
+            right_hitbox.rect.y = y
+            left_collisions = pygame.sprite.groupcollide(left_hits, blocks, False, False)
+            left_collisions2 = pygame.sprite.groupcollide(left_hits, portals, False, False)
+            left_collisions3 = pygame.sprite.groupcollide(left_hits, g_blocks, False, False)
+            right_collisions = pygame.sprite.groupcollide(right_hits, blocks, False, False)
+            right_collisions2 = pygame.sprite.groupcollide(right_hits, portals, False, False)
+            right_collisions3 = pygame.sprite.groupcollide(right_hits, g_blocks, False, False)
+            up_collisions = pygame.sprite.groupcollide(up_hits, blocks, False, False)
+            up_collisions2 = pygame.sprite.groupcollide(up_hits, portals, False, False)
+            down_collisions = pygame.sprite.groupcollide(down_hits, blocks, False, False)
+            down_collisions2 = pygame.sprite.groupcollide(down_hits, portals, False, False)
+            down_collisions3 = pygame.sprite.groupcollide(down_hits, g_blocks, False, False)
+            ghost.check_space(left_collisions, left_collisions2, left_collisions3, right_collisions, right_collisions2,
+                              right_collisions3, up_collisions, up_collisions2, down_collisions, down_collisions2,
+                              down_collisions3, ghost.rect.x, y, pacman, score)
+    else:
+        left_collisions = pygame.sprite.groupcollide(left_hits, blocks, False, False)
+        left_collisions2 = pygame.sprite.groupcollide(left_hits, portals, False, False)
+        left_collisions3 = pygame.sprite.groupcollide(left_hits, g_blocks, False, False)
+        right_collisions = pygame.sprite.groupcollide(right_hits, blocks, False, False)
+        right_collisions3 = pygame.sprite.groupcollide(right_hits, g_blocks, False, False)
+        right_collisions2 = pygame.sprite.groupcollide(right_hits, portals, False, False)
+        up_collisions = pygame.sprite.groupcollide(up_hits, blocks, False, False)
+        up_collisions2 = pygame.sprite.groupcollide(up_hits, portals, False, False)
+        down_collisions = pygame.sprite.groupcollide(down_hits, blocks, False, False)
+        down_collisions2 = pygame.sprite.groupcollide(down_hits, portals, False, False)
+        down_collisions3 = pygame.sprite.groupcollide(down_hits, g_blocks, False, False)
+        ghost.check_space(left_collisions, left_collisions2, left_collisions3, right_collisions, right_collisions2,
+                          right_collisions3, up_collisions, up_collisions2, down_collisions, down_collisions2,
+                          down_collisions3, ghost.rect.x, ghost.rect.y, pacman, score)
+
+    left_hitbox.update_hitbox(ghost)
+    right_hitbox.update_hitbox(ghost)
+    up_hitbox.update_hitbox(ghost)
+    down_hitbox.update_hitbox(ghost)
+
+    orange_portal_collision = pygame.sprite.collide_rect(ghost, orange_portal)
+    blue_portal_collision = pygame.sprite.collide_rect(ghost, blue_portal)
+    pacman_collision = pygame.sprite.collide_rect(ghost, pacman)
+
+    if pacman_collision:
+        pacman.active = False
+        pacman.image_frame = 12
+    elif orange_portal_collision:
+        if ghost.portal_cooldown == 0:
+            portal_transfer(ghost, blue_portal)
+            channel3.play(game_sounds["Port"])
+    elif blue_portal_collision:
+        if ghost.portal_cooldown == 0:
+            portal_transfer(ghost, orange_portal)
+            channel3.play(game_sounds["Port"])
 
 
 def portal_transfer(pacman, exit_portal):
@@ -198,14 +415,18 @@ def portal_transfer(pacman, exit_portal):
         pacman.moving_left = False
         pacman.moving_right = False
         pacman.image_frame = 9
-    pacman.portal_cooldown = 15
+    pacman.portal_cooldown = int(pacman.settings.block_width/pacman.settings.pacman_speed + 1)
 
 
-def bullet_collisions(pacman, blocks, g_blocks, bullets, orange_portal, blue_portal, portals):
+def bullet_collisions(pacman, blocks, g_blocks, bullets, orange_portal, blue_portal, portals, game_sounds, channel3,
+                      side_portals):
     collisions1 = pygame.sprite.groupcollide(blocks, bullets, False, False)
     collisions2 = pygame.sprite.groupcollide(portals, bullets, False, False)
     copy_portal_rect = None
     copy_portal_image = None
+
+    for bullet in bullets:
+        side_portals.transport(bullet)
     if collisions2:
         bullets.empty()
         pacman.bullet_active = False
@@ -223,6 +444,7 @@ def bullet_collisions(pacman, blocks, g_blocks, bullets, orange_portal, blue_por
                 copy_portal_rect = blue_portal.rect
                 copy_portal_image = blue_portal.image
                 blue_portal.initialize_portal(bullet, pacman.portal_switch)
+            channel3.play(game_sounds["PortalOpen"])
         portals.empty()
         portals.add(orange_portal)
         portals.add(blue_portal)
@@ -234,6 +456,7 @@ def bullet_collisions(pacman, blocks, g_blocks, bullets, orange_portal, blue_por
                 pacman.portal_switch = True
             else:
                 pacman.portal_switch = False
+            if orange_portal.portal_active and blue_portal.portal_active:
                 pacman.portals_active = True
         else:
             if not pacman.portal_switch:
@@ -244,22 +467,40 @@ def bullet_collisions(pacman, blocks, g_blocks, bullets, orange_portal, blue_por
                 blue_portal.image = copy_portal_image
 
 
-def update_screen(settings, screen, time, score, play_button, score_button, pacman, blocks, g_blocks, pellets,
-                  power_pellets, bullets, orange_portal, blue_portal):
+def update_screen(settings, screen, time, score, title, play_button, score_button, pacman, blocks, g_blocks, pellets,
+                  power_pellets, bullets, orange_portal, blue_portal, fruit, side_portals, red_ghost):
     if not settings.game_on and not settings.score_on:
         screen.fill(settings.bg_color)
+        title.draw()
+        play_button.prep_msg()
+        score_button.prep_msg()
         play_button.draw()
         score_button.draw()
+        if play_button.rect.collidepoint(pygame.mouse.get_pos()):
+            play_button.prep_msg_highlight()
+            play_button.draw_highlight()
+        elif score_button.rect.collidepoint(pygame.mouse.get_pos()):
+            score_button.prep_msg_highlight()
+            score_button.draw_highlight()
     elif settings.game_on:
         screen.fill(settings.bg_color)
         draw_maze(blocks, g_blocks, pellets, power_pellets)
+        fruit.draw(score)
         pacman.draw()
+        red_ghost.draw(pacman)
         for bullet in bullets:
             bullet.draw()
         orange_portal.draw()
         blue_portal.draw()
+        side_portals.draw()
         score.show_score()
-        if time % 3 == 0:
+        score.show_high_score()
+        score.show_level()
+        score.show_lives()
+        if time % 3 == 0 and pacman.active:
+            pacman.next_frame()
+            red_ghost.next_frame(pacman)
+        elif time % 6 == 0 and not pacman.active:
             pacman.next_frame()
         if time % 30 == 0:
             for power_pellet in power_pellets:
@@ -267,7 +508,11 @@ def update_screen(settings, screen, time, score, play_button, score_button, pacm
     elif settings.score_on:
         screen.fill(settings.bg_color)
         score.show_high_score_list()
+        score_button.prep_msg()
         score_button.draw()
+        if score_button.rect.collidepoint(pygame.mouse.get_pos()):
+            score_button.prep_msg_highlight()
+            score_button.draw_highlight()
     pygame.display.flip()
 
 

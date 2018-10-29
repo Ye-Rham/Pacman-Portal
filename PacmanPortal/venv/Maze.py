@@ -82,6 +82,12 @@ class Maze:
         self.blueprint = open('MazeCoordinates.txt', "r")
         self.mazematrix = list(self.blueprint)
 
+        self.font = pygame.font.SysFont(None, 36)
+        self.pre_game_image = self.font.render("READY!", True, (255, 255, 0))
+        self.pre_game_image_rect = self.pre_game_image.get_rect()
+        self.pre_game_image_rect.centerx = self.screen_rect.centerx
+        self.pre_game_image_rect.y = self.settings.block_height * 33.5 + self.settings.screen_height/8
+
         self.create_maze(spritesheet, blocks, g_blocks, pellets, power_pellets)
 
     def create_maze(self, spritesheet, blocks, g_blocks, pellets, power_pellets):
@@ -89,25 +95,25 @@ class Maze:
             for x in range(0, len(self.mazematrix[y])):
                 if self.mazematrix[y][x] == 'X':
                     newblock = Block(self.settings, self.screen,
-                                     (self.screen_rect.centerx - self.settings.block_width * 23 +
+                                     (self.screen_rect.centerx - self.settings.block_width * 27.5 +
                                       self.settings.block_width * x),
                                      self.settings.block_height * y + self.settings.screen_height/8)
                     blocks.add(newblock)
                 elif self.mazematrix[y][x] == 'G':
                     newg_block = GBlock(self.settings, self.screen,
-                                        (self.screen_rect.centerx - self.settings.block_width * 23 +
+                                        (self.screen_rect.centerx - self.settings.block_width * 27.5 +
                                          self.settings.block_width * x),
                                         self.settings.block_height * y + self.settings.screen_height/8)
                     g_blocks.add(newg_block)
                 elif self.mazematrix[y][x] == 'p':
                     newpellet = Pellet(self.settings, self.screen,
-                                       (self.screen_rect.centerx - self.settings.block_width * 23 +
+                                       (self.screen_rect.centerx - self.settings.block_width * 27.5 +
                                         self.settings.block_width * x),
                                        self.settings.block_height * y + self.settings.screen_height/8)
                     pellets.add(newpellet)
                 elif self.mazematrix[y][x] == 'P':
                     newpower_pellet = PowerPellet(self.settings, self.screen, spritesheet,
-                                                  (self.screen_rect.centerx - self.settings.block_width * 23 +
+                                                  (self.screen_rect.centerx - self.settings.block_width * 27.5 +
                                                    self.settings.block_width * x),
                                                   self.settings.block_height * y + self.settings.screen_height / 8)
                     power_pellets.add(newpower_pellet)
@@ -117,13 +123,17 @@ class Maze:
             for x in range(0, len(self.mazematrix[y])):
                 if self.mazematrix[y][x] == 'p':
                     newpellet = Pellet(self.settings, self.screen,
-                                       (self.screen_rect.centerx - self.settings.block_width * 23 +
+                                       (self.screen_rect.centerx - self.settings.block_width * 27.5 +
                                         self.settings.block_width * x),
                                        self.settings.block_height * y + self.settings.screen_height/8)
                     pellets.add(newpellet)
                 elif self.mazematrix[y][x] == 'P':
                     newpower_pellet = PowerPellet(self.settings, self.screen, spritesheet,
-                                                  (self.screen_rect.centerx - self.settings.block_width * 23 +
+                                                  (self.screen_rect.centerx - self.settings.block_width * 27.5 +
                                                    self.settings.block_width * x),
                                                   self.settings.block_height * y + self.settings.screen_height / 8)
                     power_pellets.add(newpower_pellet)
+
+    def pre_game_draw(self):
+        self.screen.blit(self.pre_game_image, self.pre_game_image_rect)
+        pygame.display.flip()

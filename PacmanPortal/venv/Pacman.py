@@ -19,8 +19,8 @@ class Pacman(Sprite):
         self.images = spritesheet.images_at(self.image_rects, settings.entity_width, settings.entity_height,
                                             colorkey=(0, 0, 0))
         self.rect = self.images[0].get_rect()
-        self.rect.y = self.settings.block_height * 38 + self.settings.screen_height/8
-        self.rect.x = self.screen_rect.centerx - self.settings.block_width * 23 + self.settings.block_width * 21.5
+        self.rect.y = self.settings.block_height * 45 + self.settings.screen_height * 1/8
+        self.rect.centerx = self.screen_rect.centerx
 
         self.move_left = False
         self.move_right = False
@@ -32,26 +32,31 @@ class Pacman(Sprite):
         self.moving_up = False
         self.direction = 1
 
+        self.active = True
         self.bullet_active = False
         self.portals_active = False
         self.portal_switch = False
         self.portal_cooldown = 0
+        self.ghost_cooldown = 0
 
         self.image_frame = 0
 
-    def check_space(self, left_collisions, left_collisions2, right_collisions, right_collisions2, up_collisions,
-                    up_collisions2, down_collisions, down_collisions2, down_collisions3):
-        if (not left_collisions or (left_collisions2 and not right_collisions)) and self.move_left \
-                and not self.moving_left:
+    def check_space(self, left_collisions, left_collisions2, left_collisions3, right_collisions, right_collisions2,
+                    right_collisions3, up_collisions, up_collisions2, down_collisions, down_collisions2,
+                    down_collisions3, x, y):
+        if (not left_collisions or (left_collisions2 and not right_collisions)) and not left_collisions3 and \
+                self.move_left and not self.moving_left and self.active:
             self.direction = 0
+            self.rect.y = y
             self.moving_left = True
             self.moving_right = False
             self.moving_up = False
             self.moving_down = False
             self.image_frame = 3
-        elif (not right_collisions or (right_collisions2 and not left_collisions)) and self.move_right \
-                and not self.moving_right:
+        elif (not right_collisions or (right_collisions2 and not left_collisions)) and not right_collisions3 and\
+                self.move_right and not self.moving_right and self.active:
             self.direction = 1
+            self.rect.y = y
             self.moving_left = False
             self.moving_right = True
             self.moving_up = False
@@ -59,14 +64,16 @@ class Pacman(Sprite):
             self.image_frame = 0
         elif (not up_collisions or (up_collisions2 and not down_collisions)) and self.move_up and not self.moving_up:
             self.direction = 2
+            self.rect.x = x
             self.moving_up = True
             self.moving_down = False
             self.moving_left = False
             self.moving_right = False
             self.image_frame = 6
         elif (not down_collisions or (down_collisions2 and not up_collisions)) and not down_collisions3 and \
-                self.move_down and not self.moving_down:
+                self.move_down and not self.moving_down and self.active:
             self.direction = 3
+            self.rect.x = x
             self.moving_up = False
             self.moving_down = True
             self.moving_left = False
@@ -89,20 +96,22 @@ class Pacman(Sprite):
         self.moving_down = False
         self.rect.y -= 1
 
-    def update_pacman(self, settings):
-        if self.moving_left:
-            self.rect.x -= settings.pacman_speed
-        elif self.moving_right:
-            self.rect.x += settings.pacman_speed
-        elif self.moving_up:
-            self.rect.y -= settings.pacman_speed
-        elif self.moving_down:
-            self.rect.y += settings.pacman_speed
+    def update_pacman(self):
+        if self.ghost_cooldown == 0 and self.active:
+            if self.moving_left:
+                self.rect.x -= self.settings.pacman_speed
+            elif self.moving_right:
+                self.rect.x += self.settings.pacman_speed
+            elif self.moving_up:
+                self.rect.y -= self.settings.pacman_speed
+            elif self.moving_down:
+                self.rect.y += self.settings.pacman_speed
 
     def reset_pacman(self):
-        self.rect.top = self.settings.block_height * 37 + self.settings.screen_height/8
-        self.rect.left = self.screen_rect.centerx - self.settings.block_width * 23 + self.settings.block_width * 21.5
+        self.rect.y = self.settings.block_height * 45 + self.settings.screen_height * 1/8 + 1
+        self.rect.centerx = self.screen_rect.centerx
 
+        self.active = True
         self.direction = 1
         self.move_left = False
         self.move_right = False
@@ -116,19 +125,25 @@ class Pacman(Sprite):
         self.image_frame = 0
 
     def draw(self):
-        self.screen.blit(self.images[self.image_frame], self.rect)
+        if self.ghost_cooldown == 0:
+            self.screen.blit(self.images[self.image_frame], self.rect)
+        else:
+            self.ghost_cooldown -= 1
 
     def next_frame(self):
-        if self.moving_left or self.moving_right or self.moving_up or self.moving_down:
-            self.image_frame += 1
-            if self.image_frame == 3 and self.moving_right:
-                self.image_frame = 0
-            elif self.image_frame == 6 and self.moving_left:
-                self.image_frame = 3
-            elif self.image_frame == 9 and self.moving_up:
-                self.image_frame = 6
-            elif self.image_frame == 12 and self.moving_down:
-                self.image_frame = 9
+        if self.ghost_cooldown == 0:
+            if (self.moving_left or self.moving_right or self.moving_up or self.moving_down) and self.active:
+                self.image_frame += 1
+                if self.image_frame == 3 and self.moving_right:
+                    self.image_frame = 0
+                elif self.image_frame == 6 and self.moving_left:
+                    self.image_frame = 3
+                elif self.image_frame == 9 and self.moving_up:
+                    self.image_frame = 6
+                elif self.image_frame == 12 and self.moving_down:
+                    self.image_frame = 9
+            elif not self.active and self.image_frame < 22:
+                self.image_frame += 1
 
     def cooldown(self):
         if self.portal_cooldown > 0:
