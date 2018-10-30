@@ -74,7 +74,7 @@ class RedGhost(Sprite):
                 and not down_collisions3 and not self.moving_down and not self.moving_up and not pacman.moving_up\
                 and self.rect.y <= pacman.rect.y:
             self.rect.x = x
-            self.rect.y +=1
+            self.rect.y += 1
             self.moving_up = False
             self.moving_down = True
             self.moving_left = False
